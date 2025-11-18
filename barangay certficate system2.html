@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barangay Resident Request Certificate System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        h1 {
+            text-align: center;
+            color: #4a90e2;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus {
+            border-color: #4a90e2;
+            outline: none;
+            box-shadow: 0 0 5px rgba(74, 144, 226, 0.5);
+        }
+        button {
+            background: linear-gradient(45deg, #4a90e2, #50e3c2);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        #certificate {
+            margin-top: 20px;
+            padding: 20px;
+            border: 2px solid #4a90e2;
+            background: #f9f9f9;
+            border-radius: 8px;
+            display: none;
+            font-family: 'Times New Roman', serif;
+            text-align: center;
+        }
+        #certContent {
+            white-space: pre-line;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .icon {
+            margin-right: 10px;
+        }
+        .progress {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+        @media (max-width: 600px) {
+            .container { padding: 20px; }
+            h1 { font-size: 2em; }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-home icon"></i>Barangay Resident Request Certificate System</h1>
+        
+        <h2><i class="fas fa-user icon"></i>Resident Information</h2>
+        <form id="residentForm">
+            <div class="form-group">
+                <label for="name"><i class="fas fa-signature"></i>Full Name:</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="address"><i class="fas fa-map-marker-alt"></i>Address:</label>
+                <input type="text" id="address" required>
+            </div>
+            <div class="form-group">
+                <label for="contact"><i class="fas fa-phone"></i>Contact Number:</label>
+                <input type="tel" id="contact" required>
+            </div>
+            <div class="form-group">
+                <label for="birthdate"><i class="fas fa-calendar-alt"></i>Birthdate:</label>
+                <input type="date" id="birthdate" required>
+            </div>
+            <div class="form-group">
+                <label for="gender"><i class="fas fa-venus-mars"></i>Gender:</label>
+                <select id="gender" required>
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <button type="submit"><i class="fas fa-save"></i>Save Resident Info</button>
+        </form>
+        
+        <h2 id="certHeader" class="hidden"><i class="fas fa-file-alt icon"></i>Request Certificate</h2>
+        <form id="certificateForm" class="hidden">
+            <div class="form-group">
+                <label for="certificateType"><i class="fas fa-list"></i>Certificate Type:</label>
+                <select id="certificateType" required>
+                    <option value="">Select</option>
+                    <option value="Barangay Clearance">Barangay Clearance</option>
+                    <option value="Certificate of Residency">Certificate of Residency</option>
+                    <option value="Indigency Certificate">Indigency Certificate</option>
+                </select>
+            </div>
+            <button type="submit"><i class="fas fa-download"></i>Generate and Download Certificate</button>
+        </form>
+        
+        <div id="progress" class="progress">
+            <i class="fas fa-spinner fa-spin"></i> Generating certificate...
+        </div>
+        
+        <div id="certificate">
+            <h3><i class="fas fa-eye icon"></i>Certificate Preview</h3>
+            <p id="certContent"></p>
+            <button id="downloadBtn"><i class="fas fa-file-pdf"></i>Download as PDF</button>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+
+        let residentData = JSON.parse(localStorage.getItem('residentData')) || {};
+
+        if (Object.keys(residentData).length > 0) {
+            document.getElementById('certificateForm').classList.remove('hidden');
+            document.getElementById('certHeader').classList.remove('hidden');
+            populateForm();
+        }
+
+        document.getElementById('residentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (validateForm()) {
+                residentData = {
+                    name: document.getElementById('name').value,
+                    address: document.getElementById('address').value,
+                    contact: document.getElementById('contact').value,
+                    birthdate: document.getElementById('birthdate').value,
+                    gender: document.getElementById('gender').value
+                };
+                localStorage.setItem('residentData', JSON.stringify(residentData));
+                document.getElementById('certificateForm').classList.remove('hidden');
+                document.getElementById('certHeader').classList.remove('hidden');
+                alert('Resident information saved successfully!');
+            }
+        });
+
+        function validateForm() {
+            const inputs = document.querySelectorAll('#residentForm input, #residentForm select');
+            for (let input of inputs) {
+                if (!input.value) {
+                    alert('Please fill all fields.');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function populateForm() {
+            document.getElementById('name').value = residentData.name || '';
+            document.getElementById('address').value = residentData.address || '';
+            document.getElementById('contact').value = residentData.contact || '';
+            document.getElementById('birthdate').value = residentData.birthdate || '';
+            document.getElementById('gender').value = residentData.gender || '';
+        }
+
+        document.getElementById('certificateForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const progress = document.getElementById('progress');
+            progress.style.display = 'block';
+            setTimeout(() => {
+                generateCertificate();
+                progress.style.display = 'none';
+            }, 1000);
+        });
+
+        function generateCertificate() {
+            const type = document.getElementById('certificateType').value;
+            const content = `
+REPUBLIC OF THE PHILIPPINES
+BARANGAY [YOUR BARANGAY NAME]
+[CITY/MUNICIPALITY], PHILIPPINES
+
+${type.toUpperCase()}
+
+This is to certify that ${residentData.name.toUpperCase()}, residing at ${residentData.address}, 
+born on ${residentData.birthdate}, is a bona fide resident of this barangay and has no derogatory record.
+
+Issued this ${new Date().toLocaleDateString()} at Barangay [Your Barangay Name].
+
+Barangay Captain: _________________________
+[Signature Placeholder]
+
+Official Seal: [Seal Placeholder - Add Image Below]
+            `;
+            document.getElementById('certContent').textContent = content;
+            document.getElementById('certificate').style.display = 'block';
+        }
+
+        document.getElementById('downloadBtn').addEventListener('click', function() {
+            const doc = new jsPDF();
+            const type = document.getElementById('certificateType').value;
+            
+            doc.setLineWidth(1);
+            doc.rect(10, 10, 190, 270);
+            
+            doc.setFontSize(14);
+            doc.text('REPUBLIC OF THE PHILIPPINES', 105, 30, { align: 'center' });
+            doc.text('BARANGAY [YOUR BARANGAY NAME]', 105, 40, { align: 'center' });
+            doc.text('[CITY/MUNICIPALITY], PHILIPPINES', 105, 50, { align: 'center' });
+            
+            doc.setFontSize(16);
+            doc.text(type.toUpperCase(), 105, 70, { align: 'center' });
+            
+            doc.setFontSize(12);
+            const bodyText = This is to certify that ${residentData.name.toUpperCase()}, residing at ${residentData.address}, born on ${residentData.birthdate}, is a bona fide resident of this barangay and has no derogatory record.;
+            doc.text(bodyText, 20, 90, { maxWidth: 170 });
+            
+            doc.text(Issued this ${new Date().toLocaleDateString()} at Barangay [Your Barangay Name]., 20, 120);
+            
+            doc.line(20, 140, 80, 140);
+            doc.text('Barangay Captain', 20, 150);
+            
+            doc.text('[Official Seal Placeholder]', 120, 140);
+            
+            doc.save(${residentData.name}_${type}.pdf);
+        });
+    </script>
+</body>
+</html>
