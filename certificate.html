@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Certificate Generator — Barangay</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div class="app container">
+    <h1>Barangay Resident Certificate Generator</h1>
+
+    <section class="card">
+      <h2>Resident Information</h2>
+      <form id="residentForm">
+        <label>Full Name
+          <input id="name" type="text" required />
+        </label>
+
+        <label>Address
+          <input id="address" type="text" required />
+        </label>
+
+        <label>Contact Number
+          <input id="contact" type="tel" required />
+        </label>
+
+        <label>Birthdate
+          <input id="birthdate" type="date" required />
+        </label>
+
+        <label>Gender
+          <select id="gender" required>
+            <option value="">Select</option>
+            <option>Male</option>
+            <option>Female</option>
+            <option>Other</option>
+          </select>
+        </label>
+
+        <button class="btn btn-primary" type="submit">Save Resident Info</button>
+      </form>
+    </section>
+
+    <section id="certificateSection" class="card hidden">
+      <h2>Request Certificate</h2>
+      <form id="certificateForm">
+        <label>Certificate Type
+          <select id="certificateType" required>
+            <option value="">Select</option>
+            <option>Barangay Clearance</option>
+            <option>Certificate of Residency</option>
+            <option>Indigency Certificate</option>
+          </select>
+        </label>
+
+        <label class="seal-upload">Official Seal (optional)
+          <input id="sealUpload" type="file" accept="image/*">
+        </label>
+
+        <div id="sealPreviewWrap" class="seal-preview hidden">
+          <strong>Seal Preview:</strong>
+          <img id="sealPreview" alt="Seal preview">
+          <button id="removeSealBtn" class="btn btn-outline">Remove Seal</button>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Generate & Preview</button>
+      </form>
+
+      <div id="progress" class="progress hidden">Generating certificate…</div>
+
+      <div id="certificate" class="preview hidden">
+        <h3>Certificate Preview</h3>
+        <pre id="certContent" class="cert-content"></pre>
+        <div class="preview-actions">
+          <button id="downloadBtn" class="btn btn-primary">Download as PDF</button>
+          <button id="editBtn" class="btn btn-outline">Edit Resident Info</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="note">Data (including uploaded seal) is stored locally in your browser. No server required.</p>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    // Load saved data
+    let residentData = JSON.parse(localStorage.getItem('residentData') || '{}');
+
+    const residentForm = document.getElementById('residentForm');
+    const certificateForm = document.getElementById('certificateForm');
+    const certificateSection = document.getElementById('certificateSection');
+    const certContentEl = document.getElementById('certContent');
+    const certificateEl = document.getElementById('certificate');
+    const progressEl = document.getElementById('progress');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const editBtn = document.getElementById('editBtn');
+
+    const sealUpload = document.getElementById('sealUpload');
+    const sealPreview = document.getElementById('sealPreview');
+    const sealPreviewWrap = document.getElementById('sealPreviewWrap');
+    const removeSealBtn = document.getElementById('removeSealBtn');
+
+    function populateForm() {
+      document.getElementById('name').value = residentData.name || '';
+      document.getElementById('address').value = residentData.address || '';
+      document.getElementById('contact').value = residentData.contact || '';
+      document.getElementById('birthdate').value = residentData.birthdate || '';
+      document.getElementById('gender').value = residentData.gender || '';
+
+      // load seal preview if present
+      if (residentData.sealData) {
+        sealPreview.src = residentData.sealData;
+        sealPreviewWrap.classList.remove('hidden');
+      }
+    }
+
+    if (Object.keys(residentData).length) {
+      populateForm();
+      certificateSection.classList.remove('hidden');
+    }
+
+    residentForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      // simple validation
+      const name = document.getElementById('name').value.trim();
+      const address = document.getElementById('address').value.trim();
+      const contact = document.getElementById('contact').value.trim();
+      const birthdate = document.getElementById('birthdate').value;
+      const gender = document.getElementById('gender').value;
+
+      if (!name || !address || !contact || !birthdate || !gender) {
+        alert('Please fill all fields.');
+        return;
+      }
+
+      residentData = { ...residentData, name, address, contact, birthdate, gender };
+      localStorage.setItem('residentData', JSON.stringify(residentData));
+      certificateSection.classList.remove('hidden');
+      alert('Resident information saved successfully.');
+    });
+
+    // Handle seal uploads
+    sealUpload.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload an image file (PNG or JPEG).');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        residentData.sealData = evt.target.result; // data URL
+        localStorage.setItem('residentData', JSON.stringify(residentData));
+        sealPreview.src = residentData.sealData;
+        sealPreviewWrap.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    removeSealBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      delete residentData.sealData;
+      localStorage.setItem('residentData', JSON.stringify(residentData));
+      sealPreview.src = '';
+      sealPreviewWrap.classList.add('hidden');
+      sealUpload.value = null;
+    });
+
+    certificateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const type = document.getElementById('certificateType').value;
+      if (!type) {
+        alert('Please choose a certificate type.');
+        return;
+      }
+      progressEl.classList.remove('hidden');
+      certificateEl.classList.add('hidden');
+
+      setTimeout(() => {
+        generateCertificate(type);
+        progressEl.classList.add('hidden');
+        certificateEl.classList.remove('hidden');
+      }, 700);
+    });
+
+    function generateCertificate(type) {
+      const issuedDate = new Date().toLocaleDateString();
+      const content = [
+        'REPUBLIC OF THE PHILIPPINES',
+        'BARANGAY [YOUR BARANGAY NAME]',
+        '[CITY/MUNICIPALITY], PHILIPPINES',
+        '',
+        type.toUpperCase(),
+        '',
+        `This is to certify that ${residentData.name.toUpperCase()}, residing at ${residentData.address},`,
+        `born on ${residentData.birthdate}, is a bona fide resident of this barangay and has no derogatory record.`,
+        '',
+        `Issued this ${issuedDate} at Barangay [Your Barangay Name].`,
+        '',
+        'Barangay Captain: _________________________',
+        '[Official Seal Placeholder]'
+      ].join('\n');
+
+      certContentEl.textContent = content;
+      certificateEl.dataset.type = type;
+
+      // show seal preview in the preview area if present
+      if (residentData.sealData) {
+        // include a notice in the preview content
+        certContentEl.textContent = content + '\n\n[Official Seal included below]';
+      }
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      if (!residentData.name) {
+        alert('No resident information found.');
+        return;
+      }
+      const type = certificateEl.dataset.type || document.getElementById('certificateType').value || 'Certificate';
+      const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+      // Simple styling and layout
+      doc.setFont('Times', 'Normal');
+      doc.setFontSize(12);
+
+      const lines = certContentEl.textContent.split('\n');
+      let y = 60;
+      doc.setLineWidth(1);
+      doc.rect(30, 30, 550, 720);
+
+      doc.setFontSize(14);
+      doc.text(lines.slice(0,3).join('\n'), 305, y, { align: 'center' });
+      y += 60;
+
+      doc.setFontSize(16);
+      doc.text(type.toUpperCase(), 305, y, { align: 'center' });
+      y += 30;
+
+      doc.setFontSize(12);
+      const bodyLines = lines.slice(4);
+      doc.text(bodyLines, 60, y, { maxWidth: 470, align: 'left' });
+
+      // If there's a seal image, embed it near the top-right inside the border
+      if (residentData.sealData) {
+        try {
+          const imgData = residentData.sealData;
+          const imgType = imgData.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+          // place image inside the rectangle on the right side
+          const imgW = 90; // points
+          const imgH = 90; // points
+          const imgX = 30 + 550 - imgW - 20; // right padding
+          const imgY = 60; // near top
+          doc.addImage(imgData, imgType, imgX, imgY, imgW, imgH);
+        } catch (err) {
+          console.warn('Could not add seal image to PDF', err);
+        }
+      }
+
+      // Signature lines near bottom
+      doc.line(60, 640, 220, 640);
+      doc.text('Barangay Captain', 60, 660);
+
+      // Save file with safe filename
+      const safeName = (residentData.name || 'resident').replace(/[^a-z0-9_\- ]/gi, '_').trim();
+      const filename = `${safeName}_${type.replace(/\s+/g,'_')}.pdf`;
+      doc.save(filename);
+    });
+
+    editBtn.addEventListener('click', () => {
+      // Navigate back to the form top to edit
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Utility: allow clearing stored data by pressing SHIFT+ALT+C (developer convenience)
+    window.addEventListener('keydown', (ev) => {
+      if (ev.shiftKey && ev.altKey && ev.code === 'KeyC') {
+        if (confirm('Clear saved resident data?')) {
+          localStorage.removeItem('residentData');
+          residentData = {};
+          populateForm();
+          certificateSection.classList.add('hidden');
+          alert('Resident data cleared.');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
